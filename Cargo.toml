@@ -1,0 +1,12 @@
+[package]
+name = "littempo"
+version = "0.1.0"
+authors = ["Egor Dmitriev <egordmitriev2@gmail.com>"]
+edition = "2018"
+
+[dependencies]
+litcontainers = {path = "../litcontainers/litcontainers"}
+litaudio = {path = "../litaudio"}
+litdsp = {path = "../litdsp"}
+num-traits = "0.2"
+itertools = "0.8.0"
