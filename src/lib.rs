@@ -1,3 +1,7 @@
+pub mod tempogram_processing;
+
+pub use tempogram_processing::*;
+
 #[cfg(test)]
 mod tests {
 	#[test]
