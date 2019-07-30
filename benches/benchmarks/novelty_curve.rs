@@ -16,7 +16,7 @@ fn calculate_novelty_curve_benchmark(c: &mut Criterion) {
 	]);
 
 	c.bench_function("calculate_novelty_curve", move |b| b.iter(|| {
-		let novelty_curve = littempo::calculate_novelty_curve(
+		littempo::calculate_novelty_curve(
 			&audio,
 			audio.sample_rate() as f64,
 			Dynamic::new((1024. * audio.sample_rate() as f64 / 22050.) as usize),

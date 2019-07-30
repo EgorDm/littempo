@@ -2,6 +2,7 @@ use litcontainers::*;
 use litaudio::*;
 use litplot::plotly::*;
 use std::path::{PathBuf, Path};
+use std::fs::File;
 
 pub fn setup_audio() -> AudioDeinterleaved<f64, U1, Dynamic> {
 	let mut path = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
@@ -29,6 +30,11 @@ fn main() {
 		Some(1000.),
 		Some(200.)
 	);
+
+	litio::write_binary(
+		&mut File::create(PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("tmp/test_audio_nc.lit")).unwrap(),
+		&novelty_curve
+	).unwrap();
 
 	let x = litdsp::wave::calculate_time(novelty_curve.col_dim(), sr);
 	let y_norm = novelty_curve.maximum();
