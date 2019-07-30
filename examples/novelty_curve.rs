@@ -20,34 +20,34 @@ fn main() {
 		7812.5, (audio.sample_rate() as f64 / 2.).floor()
 	]);
 
-	let novelty_curve = littempo::calculate_novelty_curve(
+	let (novelty_curve, sr) = littempo::calculate_novelty_curve(
 		&audio,
 		audio.sample_rate() as f64,
 		Dynamic::new((1024. * audio.sample_rate() as f64 / 22050.) as usize),
 		Dynamic::new((512. * audio.sample_rate() as f64 / 22050.) as usize),
 		&bands,
 		Some(1000.),
-		None
+		Some(200.)
 	);
 
-	let x = RowVec::regspace_rows(U1, novelty_curve.col_dim(), 0.);
-	let y = novelty_curve;
-	let x_sig = RowVec::regspace_rows(U1, audio.col_dim(), 0.);
+	let x = litdsp::wave::calculate_time(novelty_curve.col_dim(), sr);
+	let y_norm = novelty_curve.maximum();
+	let y = novelty_curve / y_norm;
 
-	let plot_audio = Plot::new("audio")
+	let x_audio = litdsp::wave::calculate_time(audio.col_dim(), audio.sample_rate() as f64);
+
+	let plot = Plot::new("audio")
 		.add_chart(
 			LineBuilder::default()
 				.identifier("audio")
 				.data(XYData::new(
-					provider_litcontainer(Fetch::Remote, &x_sig, None).unwrap(),
+					provider_litcontainer(Fetch::Remote, &x_audio, None).unwrap(),
 					provider_litcontainer(Fetch::Remote, &audio, None).unwrap(),
 				))
 				.name("Audio Wave")
 				.build()
 				.unwrap()
-		);
-
-	let plot = Plot::new("plot_1")
+		)
 		.add_chart(
 			LineBuilder::default()
 				.identifier("chart_1")
@@ -61,7 +61,6 @@ fn main() {
 		);
 
 	let report = Report::new("Novelty Curve")
-		.add_node(plot_audio)
 		.add_node(plot);
 
 	let path = Path::new(env!("CARGO_MANIFEST_DIR")).join("tmp").join("novelty_curve");

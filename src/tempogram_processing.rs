@@ -7,8 +7,8 @@ use std::ops::DivAssign;
 
 // TODO: check whether rowslice can be correctly converted to colslice. Lossless
 
-pub fn calculate_novelty_curve<C, S, W, H, B>(s: &S, sr: f64, window_dim: W, hop_dim: H, bands: &ContainerRM<f64, B, U2>, log_compression: Option<f64>, resample_sr: Option<usize>)
-	-> RowVec<f64, Dynamic>
+pub fn calculate_novelty_curve<C, S, W, H, B>(s: &S, sr: f64, window_dim: W, hop_dim: H, bands: &ContainerRM<f64, B, U2>, log_compression: Option<f64>, resample_sr: Option<f64>)
+	-> (RowVec<f64, Dynamic>, f64)
 	where C: Dim, S: Storage<f64, U1, C>,
 	      W: Dim + DimDiv<U2>,
 	      <W as DimDiv<U2>>::Output: DimAdd<U1>,
@@ -83,9 +83,37 @@ pub fn calculate_novelty_curve<C, S, W, H, B>(s: &S, sr: f64, window_dim: W, hop
 		novelty_curve.copy_from(&sum_cols(&band_diff));
 	}
 
-	let novelty_curve = mean_cols(&bands_novelty_curve);
+	let input_sr = sr;
+	let mut sr = stft_sr;
+	let mut novelty_curve = mean_cols(&bands_novelty_curve);
+
+	if let Some(resample_sr) = resample_sr {
+		let p = (1000. * resample_sr / stft_sr).round() as usize;
+		let q = 1000;
+
+		novelty_curve = resampling::resample::resample(&novelty_curve, p, q);
+		sr = resample_sr; // TODO: its rounded so its not exact.
+	}
 
 	// TODO: resample and smooth filter subtract
+	let novelty_curve = smooth_filter_subtract(&novelty_curve, input_sr, hop_dim, 1.5);
 
-	novelty_curve
+	(novelty_curve, sr)
+}
+
+pub fn smooth_filter_subtract<C, S, H>(s: &S, sr: f64, hop_dim: H, smooth_length: f64)
+	-> RowVec<f64, C>
+	where C: Dim, S: RowVecStorage<f64, C>, H: Dim,
+			C: DimAdd<Dynamic>, <C as DimAdd<Dynamic>>::Output: DimSub<U1>
+{
+	let smooth_length = (smooth_length * sr / hop_dim.value() as f64).ceil().max(3.) as usize;
+	let mut smooth_filter = window::hanning(D!(smooth_length));
+	smooth_filter /= smooth_filter.sum();
+	let mut local_avg = conv2_same(s, &smooth_filter);
+
+	for (local_avg, amplitude) in local_avg.as_iter_mut().zip(s.as_iter()) {
+		*local_avg = (*amplitude - *local_avg).max(0.);
+	}
+
+	local_avg
 }
