@@ -13,4 +13,9 @@ itertools = "0.8.0"
 
 [dev-dependencies]
 litaudioio = {path = "../litaudioio"}
+litplot = {path = "../litplot"}
 criterion = "0.2"
+
+[[bench]]
+name = "comparison_bench"
+harness = false
