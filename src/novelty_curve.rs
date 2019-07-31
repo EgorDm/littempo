@@ -21,8 +21,6 @@ pub struct NCSettings {
 	resample_precision: f64,
 }
 
-// TODO: check whether rowslice can be correctly converted to colslice. Lossless
-
 pub fn calculate_novelty_curve<C, S, W, H, B>(s: &S, sr: f64, window_dim: W, hop_dim: H, bands: &ContainerRM<f64, B, U2>, settings: NCSettings)
 	-> (RowVec<f64, Dynamic>, f64)
 	where C: Dim, S: Storage<f64, U1, C>,
@@ -158,4 +156,15 @@ pub fn smooth_filter_subtract<C, S>(s: &S, sr: f64, smooth_length: f64)
 	}
 
 	local_avg
+}
+
+pub fn default_audio_bands(sr: f64) -> ContainerRM<f64, U5, U2>
+{
+	ContainerRM::from_vec(U5, U2, &[
+		0., 500.,
+		500.,    1250.,
+		1250.,   3125.,
+		3125.,   7812.5,
+		7812.5, (sr / 2.).floor()
+	])
 }

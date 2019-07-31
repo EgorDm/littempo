@@ -10,19 +10,12 @@ fn novelty_curve() {
 	let target: RowVec<f64, Dynamic> = litio::read_binary_file(&crate_path.join("assets/test_audio_novelty_curve.lit")).unwrap();
 	let audio: AudioDeinterleaved<f64, U1, Dynamic> = litaudioio::read_audio(&crate_path.join("assets/test_audio.wav")).unwrap();
 
-	let bands = ContainerRM::from_vec(U5, U2, &[
-		0., 500.,
-		500.,    1250.,
-		1250.,   3125.,
-		3125.,   7812.5,
-		7812.5, (audio.sample_rate() as f64 / 2.).floor()
-	]);
-
+	let bands = littempo::default_audio_bands(audio.sample_rate() as f64);
 
 	let (novelty_curve, _) = littempo::calculate_novelty_curve(
 		&audio,
 		audio.sample_rate() as f64,
-		Dynamic::new((1024. * audio.sample_rate() as f64 / 22050.) as usize),
+		Dynamic::new((1024. * audio.sample_rate() as f64 / 22050.) as usize), // TODO: move default into settings
 		Dynamic::new((512. * audio.sample_rate() as f64 / 22050.) as usize),
 		&bands,
 		NCSettingsBuilder::default().build().unwrap()

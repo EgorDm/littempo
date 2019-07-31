@@ -17,10 +17,15 @@ pub fn novelty_curve_to_tempogram_dft<C, S, W, H, F>(s: &S, sr: f64, window_dim:
 	let padded_s = pad_cols(s, D!(window_length_half), D!(window_length_half), false);
 
 	// Compute tempogram
-	let (mut tg, sr) = stft::calculate_fourier_coefficients(&padded_s, &w, hop_dim, bpms, sr);
+	let (mut tg, sr) = stft::calculate_fourier_coefficients(&padded_s, &w, hop_dim, &(bpms / 60.), sr);
 
 	// Normalize
-	tg /= (window_length as f64).sqrt() / w.sum() * window_length as f64;
+	let a = (window_length as f64).sqrt() * w.sum() / window_length as f64;
+	//let uu = (window_length as f64).sqrt() / w.sum() * window_length as f64;
+	//tg /= a;
+	tg /= (window_length as f64).sqrt();
+	tg /= w.sum();
+	tg /= window_length as f64;
 
 	(tg, sr)
 }
@@ -32,18 +37,18 @@ pub fn tempogram_to_cyclic_tempogram<C, F, O>(tg: &ContainerRM<c64, F, C>, bpms:
 	let min_bpm = bpms.minimum();
 	let max_bpm = bpms.maximum();
 	let ref_octave = ref_tempo / min_bpm;
-	let min_octave = (min_bpm / ref_tempo).log2().round() as usize;
-	let max_octave = (max_bpm / ref_tempo).log2().round() as usize + 1;
+	let min_octave = (min_bpm / ref_tempo).log2().round();
+	let max_octave = (max_bpm / ref_tempo).log2().round() + 1.;
 
 	let mag_tempogram = tg.norm();
 
-	let log_bpm_count = ((max_octave as f64 - 1. / octave_divider.value() as f64) - min_octave as f64) / (1. / octave_divider.value() as f64);
+	let log_bpm_count = ((max_octave - 1. / octave_divider.value() as f64) - min_octave) / (1. / octave_divider.value() as f64);
 	let log_bpm = RowVec::regspace_step_rows(
 		U1,
 		D!(log_bpm_count.floor() as usize),
 		min_octave as f64,
 		1. / octave_divider.value() as f64
-	);
+	).exp2() * ref_tempo;
 	let mut log_tempogram = ContainerRM::zeros(log_bpm.col_dim(), mag_tempogram.col_dim());
 	interp1_nearest_cols(&bpms.t(), &mag_tempogram, &log_bpm.t(), &mut log_tempogram);
 
