@@ -10,6 +10,8 @@ litaudio = {path = "../litaudio"}
 litdsp = {path = "../litdsp"}
 num-traits = "0.2"
 itertools = "0.8.0"
+derive_builder = "0.7.2"
+derive-getters = "0.0.8"
 
 [dev-dependencies]
 litaudioio = {path = "../litaudioio"}

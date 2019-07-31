@@ -5,9 +5,53 @@ use litdsp::stft::calculate_stft;
 use num_traits::real::Real;
 use std::ops::DivAssign;
 
+#[derive(Debug, Clone, Builder, Getters)]
+pub struct NCSettings {
+	#[builder(default = "Some(1000.)")]
+	log_compression: Option<f64>,
+	#[builder(default = "Some(200.)")]
+	resample_sr: Option<f64>,
+	#[builder(default = "0.3")]
+	diff_filter_length: f64,
+	#[builder(default = "5.")]
+	norm_filter_length: f64,
+	#[builder(default = "1.5")]
+	smooth_length: f64,
+	#[builder(default = "74.")]
+	threshold: f64, // Db
+	#[builder(default = "1000.")]
+	resample_precision: f64,
+}
+
 // TODO: check whether rowslice can be correctly converted to colslice. Lossless
 
-pub fn calculate_band_odf<C, S, W, H, B>(s: &S, sr: f64, window_dim: W, hop_dim: H, bands: &ContainerRM<f64, B, U2>, log_compression: Option<f64>)
+pub fn calculate_novelty_curve<C, S, W, H, B>(s: &S, sr: f64, window_dim: W, hop_dim: H, bands: &ContainerRM<f64, B, U2>, settings: NCSettings)
+	-> (RowVec<f64, Dynamic>, f64)
+	where C: Dim, S: Storage<f64, U1, C>,
+	      W: Dim + DimDiv<U2>,
+	      <W as DimDiv<U2>>::Output: DimAdd<U1>,
+	      H: Dim,
+	      B: Dim
+{
+	let (bands_novelty_curve, stft_sr) = calculate_band_odf(s, sr, window_dim, hop_dim, bands, settings.clone());
+
+	let mut sr = stft_sr;
+	let mut novelty_curve = mean_cols(&bands_novelty_curve);
+
+	if let Some(resample_sr) = settings.resample_sr {
+		let p = (settings.resample_precision * resample_sr / stft_sr).round() as usize;
+		let q = settings.resample_precision as usize;
+
+		novelty_curve = resampling::resample::resample(&novelty_curve, p, q);
+		sr = resample_sr; // TODO: its rounded so its not exact.
+	}
+
+	let novelty_curve = smooth_filter_subtract(&novelty_curve, stft_sr, settings.smooth_length);
+
+	(novelty_curve, sr)
+}
+
+pub fn calculate_band_odf<C, S, W, H, B>(s: &S, sr: f64, window_dim: W, hop_dim: H, bands: &ContainerRM<f64, B, U2>, settings: NCSettings)
 	-> (ContainerRM<f64, B, Dynamic>, f64)
 	where C: Dim, S: Storage<f64, U1, C>,
 	      W: Dim + DimDiv<U2>,
@@ -15,27 +59,26 @@ pub fn calculate_band_odf<C, S, W, H, B>(s: &S, sr: f64, window_dim: W, hop_dim:
 	      H: Dim, B: Dim
 {
 	let window_length = window_dim.value();
-	let hop_length = hop_dim.value();
 
 	// Create frequency spectrum.
 	let w = window::hanning(window_dim);
 	let (stft, stft_sr) = calculate_stft(s, &w, hop_dim, true, sr);
-	let thresh = (10.).powf(-74. / 20.); // -74 db TODO: settings
+	let thresh = (10.).powf(-settings.threshold / 20.);
 
 	// Normalize it and cut off the noise
 	let spe = stft.norm();
 	let spe_max = spe.maximum();
 	let mut spe = (spe / spe_max).clamp(thresh, 1.);
-	if let Some(compression_c) = log_compression {
+	if let Some(compression_c) = settings.log_compression {
 		spe = (spe * compression_c + 1.).log(1. + compression_c);
 	}
 
 	// Make diff filter
-	let diff_filter = make_diff_filter(0.3, stft_sr);
+	let diff_filter = make_diff_filter(settings.diff_filter_length, stft_sr);
 	let diff_len_half = diff_filter.col_count() / 2;
 
 	// Make norm filter
-	let (norm_filter, norm_filter_sum) = make_norm_filter(5., stft_sr);
+	let (norm_filter, norm_filter_sum) = make_norm_filter(settings.norm_filter_length, stft_sr);
 	let norm_len_half = norm_filter.col_count() / 2;
 
 	// Prepare vals for boundary correction
@@ -47,6 +90,7 @@ pub fn calculate_band_odf<C, S, W, H, B>(s: &S, sr: f64, window_dim: W, hop_dim:
 
 	let mut bands_novelty_curve = ContainerRM::zeros(bands.row_dim(), spe.col_dim());
 
+	// TODO: parallelize
 	let bins = (bands / (sr / window_length as f64)).round().clamp(0., window_length as f64 / 2.);
 	for (bin, mut novelty_curve) in bins.as_row_slice_iter().zip(bands_novelty_curve.as_row_slice_mut_iter()) {
 		let band_data = spe.slice_rows(bin[0] as usize..bin[1] as usize);
@@ -91,7 +135,6 @@ fn make_diff_filter(length: f64, sr: f64) -> RowVec<f64, Dynamic>
 fn make_norm_filter(length: f64, sr: f64) -> (RowVec<f64, Dynamic>, RowVec<f64, Dynamic>)
 {
 	let norm_len = (length * sr).ceil().max(3.) as usize;
-	let norm_len_half = norm_len / 2;
 	let mut norm_filter = window::hanning(Dynamic::new(norm_len));
 
 	let norm_sum = norm_filter.sum();
@@ -100,33 +143,6 @@ fn make_norm_filter(length: f64, sr: f64) -> (RowVec<f64, Dynamic>, RowVec<f64, 
 	norm_filter /= norm_sum;
 
 	(norm_filter, norm_filter_sum)
-}
-
-pub fn calculate_novelty_curve<C, S, W, H, B>(s: &S, sr: f64, window_dim: W, hop_dim: H, bands: &ContainerRM<f64, B, U2>, log_compression: Option<f64>, resample_sr: Option<f64>)
-	-> (RowVec<f64, Dynamic>, f64)
-	where C: Dim, S: Storage<f64, U1, C>,
-	      W: Dim + DimDiv<U2>,
-	      <W as DimDiv<U2>>::Output: DimAdd<U1>,
-	      H: Dim,
-	      B: Dim
-{
-	let (bands_novelty_curve, stft_sr) = calculate_band_odf(s, sr, window_dim, hop_dim, bands, log_compression);
-
-	let mut sr = stft_sr;
-	let mut novelty_curve = mean_cols(&bands_novelty_curve);
-
-	if let Some(resample_sr) = resample_sr {
-		let p = (1000. * resample_sr / stft_sr).round() as usize;
-		let q = 1000;
-
-		novelty_curve = resampling::resample::resample(&novelty_curve, p, q);
-		sr = resample_sr; // TODO: its rounded so its not exact.
-	}
-
-	// TODO: resample and smooth filter subtract
-	let novelty_curve = smooth_filter_subtract(&novelty_curve, stft_sr, 1.5);
-
-	(novelty_curve, sr)
 }
 
 pub fn smooth_filter_subtract<C, S>(s: &S, sr: f64, smooth_length: f64)

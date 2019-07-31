@@ -2,7 +2,7 @@ use criterion::Criterion;
 use crate::helpers::setup_audio;
 use litaudio::AudioStorage;
 use litcontainers::*;
-use litdsp::stft;
+use littempo::NCSettingsBuilder;
 
 fn calculate_novelty_curve_benchmark(c: &mut Criterion) {
 	let audio = setup_audio();
@@ -22,8 +22,7 @@ fn calculate_novelty_curve_benchmark(c: &mut Criterion) {
 			Dynamic::new((1024. * audio.sample_rate() as f64 / 22050.) as usize),
 			Dynamic::new((512. * audio.sample_rate() as f64 / 22050.) as usize),
 			&bands,
-			None,
-			None
+			NCSettingsBuilder::default().build().unwrap()
 		);
 	}));
 }

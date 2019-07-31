@@ -1,6 +1,11 @@
-pub mod tempogram_processing;
+#[macro_use]
+extern crate derive_builder;
+#[macro_use]
+extern crate derive_getters;
 
-pub use tempogram_processing::*;
+pub mod novelty_curve;
+
+pub use novelty_curve::*;
 
 #[cfg(test)]
 mod tests {

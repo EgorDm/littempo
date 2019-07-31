@@ -27,14 +27,8 @@ fn main() {
 		Dynamic::new((1024. * audio.sample_rate() as f64 / 22050.) as usize),
 		Dynamic::new((512. * audio.sample_rate() as f64 / 22050.) as usize),
 		&bands,
-		Some(1000.),
-		Some(200.)
+		littempo::NCSettingsBuilder::default().build().unwrap()
 	);
-
-	litio::write_binary(
-		&mut File::create(PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("tmp/test_audio_nc.lit")).unwrap(),
-		&novelty_curve
-	).unwrap();
 
 	let x = litdsp::wave::calculate_time(novelty_curve.col_dim(), sr);
 	let y_norm = novelty_curve.maximum();
