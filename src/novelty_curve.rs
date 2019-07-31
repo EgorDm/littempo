@@ -1,7 +1,5 @@
 use litcontainers::*;
 use litdsp::*;
-use litdsp::functions::*;
-use litdsp::stft::calculate_stft;
 use num_traits::real::Real;
 use std::ops::DivAssign;
 
@@ -62,7 +60,7 @@ pub fn calculate_band_odf<C, S, W, H, B>(s: &S, sr: f64, window_dim: W, hop_dim:
 
 	// Create frequency spectrum.
 	let w = window::hanning(window_dim);
-	let (stft, stft_sr) = calculate_stft(s, &w, hop_dim, true, sr);
+	let (stft, stft_sr) = stft::calculate_stft(s, &w, hop_dim, true, sr);
 	let thresh = (10.).powf(-settings.threshold / 20.);
 
 	// Normalize it and cut off the noise

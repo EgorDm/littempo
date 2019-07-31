@@ -19,7 +19,7 @@ fn novelty_curve() {
 	]);
 
 
-	let (novelty_curve, sr) = littempo::calculate_novelty_curve(
+	let (novelty_curve, _) = littempo::calculate_novelty_curve(
 		&audio,
 		audio.sample_rate() as f64,
 		Dynamic::new((1024. * audio.sample_rate() as f64 / 22050.) as usize),
@@ -31,6 +31,4 @@ fn novelty_curve() {
 	for (target, result) in target.iter().zip(novelty_curve.iter()) {
 		assert!((target - result).abs() < 0.000001);
 	}
-
-	let i = 0;
 }
