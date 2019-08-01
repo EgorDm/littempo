@@ -20,12 +20,7 @@ pub fn novelty_curve_to_tempogram_dft<C, S, W, H, F>(s: &S, sr: f64, window_dim:
 	let (mut tg, sr) = stft::calculate_fourier_coefficients(&padded_s, &w, hop_dim, &(bpms / 60.), sr);
 
 	// Normalize
-	let a = (window_length as f64).sqrt() * w.sum() / window_length as f64;
-	//let uu = (window_length as f64).sqrt() / w.sum() * window_length as f64;
-	//tg /= a;
-	tg /= (window_length as f64).sqrt();
-	tg /= w.sum();
-	tg /= window_length as f64;
+	tg /= (window_length as f64).sqrt() * w.sum() / window_length as f64;
 
 	(tg, sr)
 }
