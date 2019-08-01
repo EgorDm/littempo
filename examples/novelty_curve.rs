@@ -46,7 +46,6 @@ fn main() {
 	let (cyclic_tempogram, cyclic_tempogram_axis)
 		= littempo::tempogram_to_cyclic_tempogram(&tempogram, &bpms, D!(120), 60.);
 
-
 	let plot = Plot::new("audio")
 		.add_chart(
 			LineBuilder::default()
