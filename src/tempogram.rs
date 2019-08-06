@@ -61,3 +61,9 @@ pub fn tempogram_to_cyclic_tempogram<C, F, O>(tg: &ContainerRM<c64, F, C>, bpms:
 	let y_axis = log_bpm.slice_cols(SizedRange::new(0, octave_divider)) * (ref_octave / ref_tempo);
 	(cyclic_tempogram, y_axis)
 }
+
+pub fn bpm_to_cyclic(bpm: f64, ref_tempo: f64) -> f64 {
+	let mins = (bpm / 60.).log2().floor();
+	let diff = (ref_tempo * 2f64.powf(mins + 1.)) -  (ref_tempo * 2f64.powf(mins));
+	bpm - (60. * 2f64.powf(mins)) / diff + 1.
+}
