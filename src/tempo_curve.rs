@@ -1,7 +1,7 @@
 use litcontainers::*;
 use num_traits::Signed;
 
-type Segment = Vec<usize>;
+pub type Segment = Vec<usize>;
 
 pub fn correct_curve_by_length<T, R, S>(curve: &S, min_length: usize) -> RowVec<T, R>
 	where T: ElementaryScalar + Signed, R: Dim, S: RowVecStorage<T, R>
@@ -33,7 +33,7 @@ pub fn correct_curve_by_confidence() {
 	unimplemented!() // TODO: assume normal distribution. Keep exceptional changes
 }
 
-fn split_curve<T, R, S>(curve: &S) -> Vec<Segment>
+pub fn split_curve<T, R, S>(curve: &S) -> Vec<Segment>
 	where T: ElementaryScalar, R: Dim, S: RowVecStorage<T, R>
 {
 	let mut ret = Vec::new();
@@ -71,8 +71,3 @@ fn join_adjacent_segments(segments: Vec<Segment>) -> Vec<Segment> {
 	}
 	ret
 }
-
-/*
-fn merge_segements(segments: Vec<Segment>, ) {
-
-}*/

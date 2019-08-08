@@ -1,6 +1,6 @@
 use litcontainers::*;
 use litdsp::*;
-use litdsp::windowed_iter::{WindowedColIter, WindowedIterMut, WindowedIter};
+use litdsp::windowed_iter::{WindowedColIter, WindowedIterMut};
 
 pub fn smoothen_tempogram<R, C, S>(s: &S, sr: f64, temporal_len: f64)
 	-> ContainerRM<f64, R, C>

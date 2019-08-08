@@ -6,7 +6,7 @@ use litdsp::*;
 
 pub fn setup_audio() -> AudioDeinterleaved<f64, U1, Dynamic> {
 	let mut path = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
-	path.push( "assets/test_audio.wav");
+	path.push("assets/test_audio.wav");
 	litaudioio::read_audio(path.as_path()).unwrap()
 }
 
@@ -42,8 +42,9 @@ fn main() {
 	tempogram_mag_t.copy_from(&tempogram_mag);
 
 	// Cyclic
+	let ref_tempo = 60.;
 	let (cyclic_tempogram, cyclic_tempogram_axis)
-		= littempo::tempogram_to_cyclic_tempogram(&tempogram, &bpms, D!(120), 60.);
+		= littempo::tempogram_to_cyclic_tempogram(&tempogram, &bpms, D!(120), ref_tempo);
 
 	// Preprocess tempogram
 	let triplet_weight = 3.;
@@ -54,11 +55,23 @@ fn main() {
 		tempogram_sr,
 		smooth_len
 	);
-	smooth_tempogram.as_iter_mut().for_each(|v| if *v < 0. {*v = 0.;} else {});
+	smooth_tempogram.as_iter_mut().for_each(|v| if *v < 0. { *v = 0.; } else {});
 
+	// Tempo curve extraction
 	let tempo_curve = littempo::extract_tempo_curve(&smooth_tempogram, &cyclic_tempogram_axis);
 	let min_section_length = (10. * tempogram_sr) as usize;
 	let tempo_curve = littempo::correct_curve_by_length(&tempo_curve, min_section_length);
+
+	let tempo_segments = littempo::split_curve(&tempo_curve);
+	let tempo_sections = littempo::tempo_segments_to_sections(&tempo_curve, &tempo_segments, tempogram_sr, ref_tempo);
+	let bpm_merge_threshold = 0.5;
+	let tempo_sections_tmp = littempo::merge_sections(&tempo_sections, bpm_merge_threshold);
+
+	let max_section_length = 40.;
+	let mut tempo_sections = Vec::new();
+	for s in tempo_sections_tmp {
+		littempo::split_section(s, &mut tempo_sections, max_section_length);
+	}
 
 	let plot = Plot::new("audio")
 		.add_chart(
