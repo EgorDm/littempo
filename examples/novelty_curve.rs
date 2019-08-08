@@ -2,7 +2,6 @@ use litcontainers::*;
 use litaudio::*;
 use litplot::plotly::*;
 use std::path::{PathBuf, Path};
-use itertools::Itertools;
 use litdsp::*;
 
 pub fn setup_audio() -> AudioDeinterleaved<f64, U1, Dynamic> {
@@ -45,6 +44,21 @@ fn main() {
 	// Cyclic
 	let (cyclic_tempogram, cyclic_tempogram_axis)
 		= littempo::tempogram_to_cyclic_tempogram(&tempogram, &bpms, D!(120), 60.);
+
+	// Preprocess tempogram
+	let triplet_weight = 3.;
+	let triplet_corrected_cyclic_tempogram = littempo::include_triplets(&cyclic_tempogram, &cyclic_tempogram_axis, triplet_weight);
+	let smooth_len = 20.; // 20 sec
+	let mut smooth_tempogram = littempo::smoothen_tempogram(
+		&triplet_corrected_cyclic_tempogram,
+		tempogram_sr,
+		smooth_len
+	);
+	smooth_tempogram.as_iter_mut().for_each(|v| if *v < 0. {*v = 0.;} else {});
+
+	let tempo_curve = littempo::extract_tempo_curve(&smooth_tempogram, &cyclic_tempogram_axis);
+	let min_section_length = (10. * tempogram_sr) as usize;
+	let tempo_curve = littempo::correct_curve_by_length(&tempo_curve, min_section_length);
 
 	let plot = Plot::new("audio")
 		.add_chart(
@@ -94,10 +108,32 @@ fn main() {
 				.build().unwrap()
 		);
 
+	let plot4 = Plot::new("smooth_tempogram")
+		.add_chart(
+			HeatmapBuilder::default()
+				.data(XYZData::new(
+					provider_litcontainer(Fetch::Remote, &litdsp::wave::calculate_time(tempogram.col_dim(), tempogram_sr), None).unwrap(),
+					provider_litcontainer(Fetch::Remote, &cyclic_tempogram_axis, None).unwrap(),
+					provider_litcontainer(Fetch::Remote, &smooth_tempogram, None).unwrap(),
+				))
+				.name("Smooth Tempogram")
+				.build().unwrap()
+		)
+		.add_chart(
+			LineBuilder::default()
+				.data(XYData::new(
+					provider_litcontainer(Fetch::Remote, &litdsp::wave::calculate_time(tempogram.col_dim(), tempogram_sr), None).unwrap(),
+					provider_litcontainer(Fetch::Remote, &tempo_curve, None).unwrap()
+				))
+				.name("Tempo Curve")
+				.build().unwrap()
+		);
+
 	let report = Report::new("Novelty Curve")
 		.add_node(plot)
 		.add_node(plot2)
-		.add_node(plot3);
+		.add_node(plot3)
+		.add_node(plot4);
 
 	let path = Path::new(env!("CARGO_MANIFEST_DIR")).join("tmp").join("novelty_curve");
 	report.force_save(path.as_path()).unwrap();

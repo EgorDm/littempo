@@ -10,7 +10,7 @@ pub fn correct_curve_by_length<T, R, S>(curve: &S, min_length: usize) -> RowVec<
 	let segments = split_curve(curve);
 
 	// Take small segments and join if needed
-	let mut small_segments: Vec<_> = segments.iter()
+	let small_segments: Vec<_> = segments.iter()
 		.filter(|s| s.len() < min_length).cloned().collect();
 
 	// Delete the small segments by replaing their value to neareast outside their boundaries
@@ -63,7 +63,7 @@ fn join_adjacent_segments(segments: Vec<Segment>) -> Vec<Segment> {
 	let mut ret = Vec::new();
 	for segment in segments {
 		if ret.last().and_then(|s: &Segment| s.last())
-			.and_then(|li| segment.first().map((|fi| *li == fi - 1))) == Some(true) {
+			.and_then(|li| segment.first().map(|fi| *li == fi - 1)) == Some(true) {
 			ret.last_mut().unwrap().extend(segment);
 		} else {
 			ret.push(segment);
@@ -71,3 +71,8 @@ fn join_adjacent_segments(segments: Vec<Segment>) -> Vec<Segment> {
 	}
 	ret
 }
+
+/*
+fn merge_segements(segments: Vec<Segment>, ) {
+
+}*/
