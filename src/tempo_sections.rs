@@ -12,6 +12,18 @@ pub struct TempoSection {
 impl TempoSection {
 	pub fn new(start: f32, end: f32, bpm: f32, offset: f32) -> Self { Self { start, end, bpm, offset } }
 
+	pub fn start(&self) -> f32 { self.start }
+
+	pub fn end(&self) -> f32 { self.end }
+
+	pub fn bpm(&self) -> f32 { self.bpm }
+
+	pub fn set_bpm(&mut self, v: f32) { self.bpm = v }
+
+	pub fn offset(&self) -> f32 { self.offset }
+
+	pub fn set_offset(&mut self, v: f32) { self.offset = v }
+
 	pub fn duration(&self) -> f32 { self.end - self.start }
 }
 
@@ -21,7 +33,7 @@ pub fn tempo_segments_to_sections<R, S>(curve: &S, segments: &Vec<Segment>, sr: 
 {
 	segments.iter().map(|segment| {
 		let start = (*segment.first().unwrap() as f64 / sr) as f32;
-		let end = (*segment.last().unwrap() as f64 / sr) as f32;
+		let end = ((segment.last().unwrap() + 1) as f64 / sr) as f32;
 		let bpm = (curve[*segment.first().unwrap()] * ref_tempo) as f32;
 		TempoSection::new(start, end, bpm, 0.)
 	}).collect()

@@ -3,6 +3,7 @@ use litaudio::*;
 use litplot::plotly::*;
 use std::path::{PathBuf, Path};
 use litdsp::*;
+use std::cmp::Ordering::Equal;
 
 pub fn setup_audio() -> AudioDeinterleaved<f64, U1, Dynamic> {
 	let mut path = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
@@ -71,6 +72,24 @@ fn main() {
 	let mut tempo_sections = Vec::new();
 	for s in tempo_sections_tmp {
 		littempo::split_section(s, &mut tempo_sections, max_section_length);
+	}
+
+	// Correct bpm height
+	let tempo_multiples: Vec<_> = [0, 1, 2].into_iter().map(|x| 2f32.powi(*x)).collect();
+	let preferred_bpm = 120.;
+	let bpm_rounding_precision = 0.5;
+	let bpm_doubt_window = 2.;
+	let bpm_doubt_step = 0.1;
+	let smallest_fraction_shift = 4;
+	for s in tempo_sections.iter_mut() {
+		let best_multiple = tempo_multiples.iter().cloned()
+			.max_by(|a, b| (preferred_bpm - a * s.bpm()).partial_cmp(&(preferred_bpm - b * s.bpm())).unwrap_or(Equal));
+		s.set_bpm(best_multiple.unwrap_or(1.) * s.bpm());
+		s.set_bpm((s.bpm() / bpm_rounding_precision).round() * bpm_rounding_precision);
+
+		// Correct offset
+		littempo::extract_offset(&novelty_curve, sr, s, &tempo_multiples, bpm_doubt_window, bpm_doubt_step);
+		littempo::correct_offset(s, smallest_fraction_shift);
 	}
 
 	let plot = Plot::new("audio")
