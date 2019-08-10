@@ -52,6 +52,10 @@ pub fn merge_sections(sections: &Vec<TempoSection>, threshold: f32) -> Vec<Tempo
 		candidates.push(s.clone())
 	}
 
+	if !candidates.is_empty() {
+		ret.push(average_sections(&candidates));
+	}
+
 	ret
 }
 

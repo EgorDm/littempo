@@ -12,14 +12,15 @@ pub fn correct_curve_by_length<T, R, S>(curve: &S, min_length: usize) -> RowVec<
 	// Take small segments and join if needed
 	let small_segments: Vec<_> = segments.iter()
 		.filter(|s| s.len() < min_length).cloned().collect();
+	let small_segments = join_adjacent_segments(small_segments);
 
 	// Delete the small segments by replaing their value to neareast outside their boundaries
 	let mut ret = rvec_zeros![curve.col_dim()];
 	ret.copy_from(curve);
 	for segment in small_segments {
 		let (start, end) = (*segment.first().unwrap(), *segment.last().unwrap());
-		let before = if start > 0 { curve[start] } else { T::max_val() };
-		let after = if end + 1 < curve.row_count() { curve[end + 1] } else { T::max_val() };
+		let before = if start > 0 { curve[start - 1] } else { T::max_val() };
+		let after = if end + 1 < curve.col_count() { curve[end + 1] } else { T::max_val() };
 		let target = if (ret[start] - before).abs() > (ret[start] - after).abs() { after } else { before };
 		if target == T::max_val() { continue; }
 
