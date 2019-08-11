@@ -75,7 +75,7 @@ fn main() {
 	}
 
 	// Correct bpm height
-	let tempo_multiples: Vec<_> = [0, 1, 2].into_iter().map(|x| 2f32.powi(*x)).collect();
+	let tempo_multiples: Vec<_> = vec![1., 2., 4., 6.];
 	let preferred_bpm = 120.;
 	let bpm_rounding_precision = 0.5;
 	let bpm_doubt_window = 2.;
@@ -91,6 +91,16 @@ fn main() {
 		littempo::extract_offset(&novelty_curve, sr, s, &tempo_multiples, bpm_doubt_window, bpm_doubt_step);
 		littempo::correct_offset(s, smallest_fraction_shift);
 	}
+
+	println!("Found tempo sections:");
+	for s in &tempo_sections {
+		println!("{:#?}", s);
+	}
+
+	let path = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("tmp").join("click_track.mp3");
+	let mut click_audio = AudioDeinterleaved::new(DeinterleavedStorage::zeros(audio.channel_dim(), audio.sample_dim()), audio.sample_rate());
+	click_audio.as_iter_mut().zip(audio.as_iter()).for_each(|(o, i)| *o = *i as f32);
+	littempo::save_tempo_click_track(&path, click_audio, &tempo_sections, 12).unwrap();
 
 	let plot = Plot::new("audio")
 		.add_chart(

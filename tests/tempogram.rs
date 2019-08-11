@@ -37,7 +37,7 @@ fn tempogram() {
 	let tempo_window = (8. * nc_sr) as usize;
 	let tempo_hop_size = (nc_sr / 5.).ceil() as usize;
 
-	let (mut tempogram, tempogram_sr) = littempo::novelty_curve_to_tempogram_dft(
+	let (mut tempogram, _tempogram_sr) = littempo::novelty_curve_to_tempogram_dft(
 		&novelty_curve,
 		nc_sr,
 		D!(tempo_window),

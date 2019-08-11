@@ -1,6 +1,7 @@
 use litcontainers::*;
 use crate::TempoSection;
 use std::cmp::Ordering::Equal;
+use rayon::prelude::*;
 
 pub fn extract_offset<C, S>(nc: &S, sr: f64, s: &mut TempoSection, tempo_multiples: &Vec<f32>, doubt_window: f32, doubt_step: f32)
 	where C: Dim, S: RowVecStorage<f64, C>
@@ -13,7 +14,7 @@ pub fn extract_offset<C, S>(nc: &S, sr: f64, s: &mut TempoSection, tempo_multipl
 	let step_count = (doubt_window / doubt_step) as usize;
 	let bpms: Vec<_> = (0..step_count).map(|i| min_bpm + i as f32 * doubt_step).collect();
 
-	let candidates: Vec<_> = bpms.iter().cloned().map(|bpm| {
+	let candidates: Vec<_> = bpms.par_iter().cloned().map(|bpm| {
 		let samples_per_bar = ((60. / bpm as f64 * sr) * 4.).ceil() as usize;
 		let pulse_dim = D!(section_length + samples_per_bar);
 		let pulses: Vec<_> = tempo_multiples.iter().cloned().map(|m| {
