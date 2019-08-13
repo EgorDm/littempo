@@ -9,17 +9,22 @@ litcontainers = {path = "../litcontainers/litcontainers"}
 litaudioio = {path = "../litaudioio"}
 litaudio = {path = "../litaudio"}
 litdsp = {path = "../litdsp"}
+litplot = {path = "../litplot"}
 num-traits = "0.2"
 itertools = "0.8.0"
 derive_builder = "0.7.2"
 derive-getters = "0.0.8"
 rayon = "1.1.0"
+clap = "2.33.0"
 
 [dev-dependencies]
-litplot = {path = "../litplot"}
 litio = {path = "../litcontainers/litio"}
 criterion = "0.2"
 
 [[bench]]
 name = "comparison_bench"
 harness = false
+
+[[bin]]
+name = "littempo-cli"
+path = "src/bin.rs"

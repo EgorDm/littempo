@@ -32,7 +32,7 @@ pub fn click_track(sections: &Vec<TempoSection>, sr: f64, click_fraction: u32) -
 	for s in sections {
 		let clicks = click_track_from_section(s, sr, click_fraction);
 		let start = (s.start() as f64 * sr).round() as usize;
-		let end = clicks.sample_count().min(ret.sample_count());
+		let end = (start + clicks.sample_count()).min(ret.sample_count());
 		ret.slice_samples_mut(start..end).copy_from(&clicks.slice_samples(0..(end - start)))
 	}
 

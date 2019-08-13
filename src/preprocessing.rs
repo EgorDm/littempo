@@ -2,11 +2,10 @@ use litcontainers::*;
 use litdsp::*;
 use litdsp::windowed_iter::{WindowedColIter, WindowedIterMut};
 
-pub fn smoothen_tempogram<R, C, S>(s: &S, sr: f64, temporal_len: f64)
+pub fn smoothen_tempogram<R, C, S, D>(s: &S, window_dim: D)
 	-> ContainerRM<f64, R, C>
-	where R: Dim, C: Dim, S: Storage<f64, R, C>
+	where R: Dim, C: Dim, S: Storage<f64, R, C>, D: Dim
 {
-	let window_dim = D!((temporal_len * sr) as usize);
 	let w_hann = window::hanning(window_dim);
 	let w_ones = window::constant(window_dim);
 	let w = w_hann + &w_ones;

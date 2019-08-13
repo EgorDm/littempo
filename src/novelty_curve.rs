@@ -2,6 +2,7 @@ use litcontainers::*;
 use litdsp::*;
 use num_traits::real::Real;
 use std::ops::DivAssign;
+use rayon::prelude::*;
 
 #[derive(Debug, Clone, Builder, Getters)]
 pub struct NCSettings {
@@ -88,7 +89,9 @@ pub fn calculate_band_odf<C, S, W, H, B>(s: &S, sr: f64, window_dim: W, hop_dim:
 
 	// TODO: parallelize
 	let bins = (bands / (sr / window_length as f64)).round().clamp(0., window_length as f64 / 2.);
-	for (bin, mut novelty_curve) in bins.as_row_slice_iter().zip(bands_novelty_curve.as_row_slice_mut_iter()) {
+
+	bands_novelty_curve.as_row_slice_mut_iter() // TODO: as_row_slice_par_mut_iter()
+		.zip(bins.as_row_slice_iter()).for_each(|(mut novelty_curve, bin)| {
 		let band_data = spe.slice_rows(bin[0] as usize..bin[1] as usize);
 
 		// Calculate band diff
@@ -108,7 +111,7 @@ pub fn calculate_band_odf<C, S, W, H, B>(s: &S, sr: f64, window_dim: W, hop_dim:
 		}
 
 		novelty_curve.copy_from(&sum_cols(&band_diff));
-	}
+	});
 
 	(bands_novelty_curve, stft_sr)
 }
