@@ -1,6 +1,6 @@
 use litcontainers::*;
 use litaudio::*;
-use std::path::{PathBuf, Path};
+use std::path::{PathBuf};
 
 pub fn setup_audio() -> AudioDeinterleaved<f64, U1, Dynamic> {
 	let mut path = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
