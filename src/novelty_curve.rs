@@ -17,7 +17,8 @@ pub struct NCSettings {
 	#[builder(default = "1.5")]
 	smooth_length: f64,
 	#[builder(default = "74.")]
-	threshold: f64, // Db
+	threshold: f64,
+	// Db
 	#[builder(default = "1000.")]
 	resample_precision: f64,
 }
@@ -90,27 +91,29 @@ pub fn calculate_band_odf<S, W, H, B>(s: &S, sr: f64, window_dim: W, hop_dim: H,
 	let bins = (bands / (sr / window_length as f64)).round().clamp(0., window_length as f64 / 2.);
 
 	bands_novelty_curve.as_row_slice_iter_mut() // TODO: as_row_slice_par_mut_iter()
-		.zip(bins.as_row_slice_iter()).for_each(|(mut novelty_curve, bin)| {
-		let band_data = spe.slice_rows(bin[0] as usize..bin[1] as usize);
+		.into_par_iter()
+		.zip(bins.as_row_slice_iter().into_par_iter())
+		.for_each(|(mut novelty_curve, bin)| {
+			let band_data = spe.slice_rows(bin[0] as usize..bin[1] as usize);
 
-		// Calculate band diff
-		let band_krn = pad_cols(&band_data, D!(diff_len_half), D!(diff_len_half), true);
-		let mut band_diff = conv2_same(&band_krn, &diff_filter).max(0.);
-		let mut band_diff = band_diff.slice_cols_mut(diff_len_half - 1..band_diff.cols() - diff_len_half - 1);
+			// Calculate band diff
+			let band_krn = pad_cols(&band_data, D!(diff_len_half), D!(diff_len_half), true);
+			let mut band_diff = conv2_same(&band_krn, &diff_filter).max(0.);
+			let mut band_diff = band_diff.slice_cols_mut(diff_len_half - 1..band_diff.cols() - diff_len_half - 1);
 
-		// Normalize band
-		let mut norm_curve = conv2_same(&sum_cols(&band_data), &norm_filter);
+			// Normalize band
+			let mut norm_curve = conv2_same(&sum_cols(&band_data), &norm_filter);
 
-		// Boundary correction
-		norm_curve.slice_cols_mut(f_half_span.clone()).div_assign(&norm_filter_f_slice_flipped);
-		norm_curve.slice_cols_mut(l_half_span.clone()).div_assign(&norm_filter_f_slice);
+			// Boundary correction
+			norm_curve.slice_cols_mut(f_half_span.clone()).div_assign(&norm_filter_f_slice_flipped);
+			norm_curve.slice_cols_mut(l_half_span.clone()).div_assign(&norm_filter_f_slice);
 
-		for mut band_diff_row in band_diff.as_row_slice_iter_mut() {
-			band_diff_row /= &norm_curve;
-		}
+			for mut band_diff_row in band_diff.as_row_slice_iter_mut() {
+				band_diff_row /= &norm_curve;
+			}
 
-		novelty_curve.copy_from(&sum_cols(&band_diff));
-	});
+			novelty_curve.copy_from(&sum_cols(&band_diff));
+		});
 
 	(bands_novelty_curve, stft_sr)
 }
@@ -164,9 +167,9 @@ pub fn default_audio_bands(sr: f64) -> ContainerRM<f64, U5, U2>
 {
 	ContainerRM::from_vec(Size::new(U5, U2), &[
 		0., 500.,
-		500.,    1250.,
-		1250.,   3125.,
-		3125.,   7812.5,
+		500., 1250.,
+		1250., 3125.,
+		3125., 7812.5,
 		7812.5, (sr / 2.).floor()
 	])
 }
