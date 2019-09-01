@@ -22,13 +22,12 @@ pub struct NCSettings {
 	resample_precision: f64,
 }
 
-pub fn calculate_novelty_curve<C, S, W, H, B>(s: &S, sr: f64, window_dim: W, hop_dim: H, bands: &ContainerRM<f64, B, U2>, settings: NCSettings)
+pub fn calculate_novelty_curve<S, W, H, B>(s: &S, sr: f64, window_dim: W, hop_dim: H, bands: &ContainerRM<f64, B, U2>, settings: NCSettings)
 	-> (RowVec<f64, Dynamic>, f64)
-	where C: Dim, S: Storage<f64, U1, C>,
+	where S: RowVecStorage<f64>,
 	      W: Dim + DimDiv<U2>,
 	      <W as DimDiv<U2>>::Output: DimAdd<U1>,
-	      H: Dim,
-	      B: Dim
+	      H: Dim, B: Dim
 {
 	let (bands_novelty_curve, stft_sr) = calculate_band_odf(s, sr, window_dim, hop_dim, bands, settings.clone());
 
@@ -48,9 +47,9 @@ pub fn calculate_novelty_curve<C, S, W, H, B>(s: &S, sr: f64, window_dim: W, hop
 	(novelty_curve, sr)
 }
 
-pub fn calculate_band_odf<C, S, W, H, B>(s: &S, sr: f64, window_dim: W, hop_dim: H, bands: &ContainerRM<f64, B, U2>, settings: NCSettings)
+pub fn calculate_band_odf<S, W, H, B>(s: &S, sr: f64, window_dim: W, hop_dim: H, bands: &ContainerRM<f64, B, U2>, settings: NCSettings)
 	-> (ContainerRM<f64, B, Dynamic>, f64)
-	where C: Dim, S: Storage<f64, U1, C>,
+	where S: RowVecStorage<f64>,
 	      W: Dim + DimDiv<U2>,
 	      <W as DimDiv<U2>>::Output: DimAdd<U1>,
 	      H: Dim, B: Dim
@@ -72,32 +71,32 @@ pub fn calculate_band_odf<C, S, W, H, B>(s: &S, sr: f64, window_dim: W, hop_dim:
 
 	// Make diff filter
 	let diff_filter = make_diff_filter(settings.diff_filter_length, stft_sr);
-	let diff_len_half = diff_filter.col_count() / 2;
+	let diff_len_half = diff_filter.cols() / 2;
 
 	// Make norm filter
 	let (norm_filter, norm_filter_sum) = make_norm_filter(settings.norm_filter_length, stft_sr);
-	let norm_len_half = norm_filter.col_count() / 2;
+	let norm_len_half = norm_filter.cols() / 2;
 
 	// Prepare vals for boundary correction
 	let f_half_span = 0..norm_len_half;
-	let l_half_span = spe.col_count() - norm_len_half..spe.col_count();
+	let l_half_span = spe.cols() - norm_len_half..spe.cols();
 
 	let norm_filter_f_slice = norm_filter_sum.slice_cols(f_half_span.clone());
-	let norm_filter_f_slice_flipped = norm_filter_f_slice.flip_rows();
+	let norm_filter_f_slice_flipped = norm_filter_f_slice.flip_axis(RowAxis);
 
-	let mut bands_novelty_curve = ContainerRM::zeros(bands.row_dim(), spe.col_dim());
+	let mut bands_novelty_curve = ContainerRM::zeros(Size::new(bands.row_dim(), spe.col_dim()));
 
 	// TODO: parallelize
 	let bins = (bands / (sr / window_length as f64)).round().clamp(0., window_length as f64 / 2.);
 
-	bands_novelty_curve.as_row_slice_mut_iter() // TODO: as_row_slice_par_mut_iter()
+	bands_novelty_curve.as_row_slice_iter_mut() // TODO: as_row_slice_par_mut_iter()
 		.zip(bins.as_row_slice_iter()).for_each(|(mut novelty_curve, bin)| {
 		let band_data = spe.slice_rows(bin[0] as usize..bin[1] as usize);
 
 		// Calculate band diff
 		let band_krn = pad_cols(&band_data, D!(diff_len_half), D!(diff_len_half), true);
 		let mut band_diff = conv2_same(&band_krn, &diff_filter).max(0.);
-		let mut band_diff = band_diff.slice_cols_mut(diff_len_half - 1..band_diff.col_count() - diff_len_half - 1);
+		let mut band_diff = band_diff.slice_cols_mut(diff_len_half - 1..band_diff.cols() - diff_len_half - 1);
 
 		// Normalize band
 		let mut norm_curve = conv2_same(&sum_cols(&band_data), &norm_filter);
@@ -106,7 +105,7 @@ pub fn calculate_band_odf<C, S, W, H, B>(s: &S, sr: f64, window_dim: W, hop_dim:
 		norm_curve.slice_cols_mut(f_half_span.clone()).div_assign(&norm_filter_f_slice_flipped);
 		norm_curve.slice_cols_mut(l_half_span.clone()).div_assign(&norm_filter_f_slice);
 
-		for mut band_diff_row in band_diff.as_row_slice_mut_iter() {
+		for mut band_diff_row in band_diff.as_row_slice_iter_mut() {
 			band_diff_row /= &norm_curve;
 		}
 
@@ -128,7 +127,7 @@ fn make_diff_filter(length: f64, sr: f64) -> RowVec<f64, Dynamic>
 	let mid = rvec_zeros![U1; f64];
 	let right = rvec_value![Dynamic::new(diff_len_half); -1.];
 	let mult_filt = join_cols!(left, mid, right);
-	window::hanning(Dynamic::new(diff_len)) * &mult_filt
+	window::hanning(Dynamic::new(diff_len)) * mult_filt
 }
 
 fn make_norm_filter(length: f64, sr: f64) -> (RowVec<f64, Dynamic>, RowVec<f64, Dynamic>)
@@ -137,17 +136,17 @@ fn make_norm_filter(length: f64, sr: f64) -> (RowVec<f64, Dynamic>, RowVec<f64, 
 	let mut norm_filter = window::hanning(Dynamic::new(norm_len));
 
 	let norm_sum = norm_filter.sum();
-	let mut norm_filter_sum = cumsum_rows(&norm_filter);
+	let mut norm_filter_sum = norm_filter.cumsum(RowAxis);
 	norm_filter_sum.mapv_inplace(|v| (norm_sum - v) / norm_sum);
 	norm_filter /= norm_sum;
 
 	(norm_filter, norm_filter_sum)
 }
 
-pub fn smooth_filter_subtract<C, S>(s: &S, sr: f64, smooth_length: f64)
-	-> RowVec<f64, C>
-	where C: Dim, S: RowVecStorage<f64, C>,
-			C: DimAdd<Dynamic>, <C as DimAdd<Dynamic>>::Output: DimSub<U1>
+pub fn smooth_filter_subtract<S>(s: &S, sr: f64, smooth_length: f64)
+	-> RowVec<f64, S::Cols>
+	where S: RowVecStorage<f64>,
+	      S::Cols: DimAdd<Dynamic>, <S::Cols as DimAdd<Dynamic>>::Output: DimSub<U1>
 {
 	let smooth_length = (smooth_length * sr).ceil().max(3.) as usize;
 	let mut smooth_filter = window::hanning(D!(smooth_length));
@@ -163,7 +162,7 @@ pub fn smooth_filter_subtract<C, S>(s: &S, sr: f64, smooth_length: f64)
 
 pub fn default_audio_bands(sr: f64) -> ContainerRM<f64, U5, U2>
 {
-	ContainerRM::from_vec(U5, U2, &[
+	ContainerRM::from_vec(Size::new(U5, U2), &[
 		0., 500.,
 		500.,    1250.,
 		1250.,   3125.,

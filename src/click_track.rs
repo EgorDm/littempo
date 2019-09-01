@@ -5,15 +5,15 @@ use crate::TempoSection;
 use std::path::Path;
 use litaudioio::error::Error;
 
-pub fn save_tempo_click_track<C, L, P, S>(path: &Path, a: S, sections: &Vec<TempoSection>, click_fraction: u32) -> Result<(), Error>
-	where C: Dim, L: Dim, P: SamplePackingType, S: AudioStorageMut<f32, C, L, P>
+pub fn save_tempo_click_track<P, S>(path: &Path, a: S, sections: &Vec<TempoSection>, click_fraction: u32) -> Result<(), Error>
+	where P: SamplePackingType, S: AudioStorageMut<f32, P>
 {
 	let click_track = click_track(sections, a.sample_rate() as f64, click_fraction);
 	let mut output = a;
 
 	match click_track {
 		Some(click_track) => {
-			for mut ch in output.as_row_slice_mut_iter() {
+			for mut ch in output.as_row_slice_iter_mut() {
 				ch.as_iter_mut().zip(click_track.as_iter()).for_each(|(o, c)| *o = clamp(*o + *c, -1., 1.))
 			}
 		},
@@ -27,12 +27,12 @@ pub fn save_tempo_click_track<C, L, P, S>(path: &Path, a: S, sections: &Vec<Temp
 pub fn click_track(sections: &Vec<TempoSection>, sr: f64, click_fraction: u32) -> Option<AudioDeinterleaved<f32, U1, Dynamic>> {
 	if sections.is_empty() { return None; }
 	let len = ((sections.last().unwrap().end() - sections.first().unwrap().start()) as f64 * sr).round() as usize;
-	let mut ret = AudioDeinterleaved::new(DeinterleavedStorage::zeros(U1,  D!(len)), sr as i32);
+	let mut ret = AudioDeinterleaved::new(DeinterleavedStorage::zeros(Size::new(U1,  D!(len))), sr as i32);
 
 	for s in sections {
 		let clicks = click_track_from_section(s, sr, click_fraction);
 		let start = (s.start() as f64 * sr).round() as usize;
-		let end = (start + clicks.sample_count()).min(ret.sample_count());
+		let end = (start + clicks.samples()).min(ret.samples());
 		ret.slice_samples_mut(start..end).copy_from(&clicks.slice_samples(0..(end - start)))
 	}
 
@@ -42,8 +42,8 @@ pub fn click_track(sections: &Vec<TempoSection>, sr: f64, click_fraction: u32) -
 pub fn click_sound_custom(sr: f64, duration: f32, freq: f64) -> RowVec<f32, Dynamic> {
 	let angular_freq = 2. * f64::consts::PI * freq / sr as f64;
 	let len = (duration as f64 * sr) as usize;
-	let mut click = RowVec::linspace_rows(U1, D!(len), 0., -10.).exp2();
-	click *= &(RowVec::regspace_rows(U1, D!(len), 0.) * angular_freq as f32).sin();
+	let mut click = RowVec::linspace(Size::new(U1, D!(len)), RowAxis, 0., -10.).exp2();
+	click *= &(RowVec::regspace(Size::new(U1, D!(len)), RowAxis, 0.) * angular_freq as f32).sin();
 	click
 }
 
@@ -70,7 +70,7 @@ pub fn click_track_from_tempo<D: Dim>(bpm: f32, offset: f32, length: D, sr: f64,
 
 pub fn click_track_from_positions<D: Dim>(p: &Vec<f32>, sr: f64, length: D) -> AudioDeinterleaved<f32, U1, D>
 {
-	let mut ret = AudioDeinterleaved::new(DeinterleavedStorage::zeros(U1, length), sr.round() as i32);
+	let mut ret = AudioDeinterleaved::new(DeinterleavedStorage::zeros(Size::new(U1, length)), sr.round() as i32);
 	let click = click_sound(sr);
 
 	for pos in p {
@@ -78,7 +78,7 @@ pub fn click_track_from_positions<D: Dim>(p: &Vec<f32>, sr: f64, length: D) -> A
 		let pos = (*pos as f64 * sr).round() as usize;
 		if pos >= length.value() { continue; }
 
-		let click_len = click.col_count().min(ret.col_count() - pos);
+		let click_len = click.cols().min(ret.cols() - pos);
 		ret.slice_samples_mut(pos..pos + click_len).copy_from(&click.slice_cols(0..click_len));
 	}
 

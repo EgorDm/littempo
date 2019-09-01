@@ -1,13 +1,13 @@
 use litcontainers::*;
 use litdsp::*;
 
-pub fn novelty_curve_to_tempogram_dft<C, S, W, H, F>(s: &S, sr: f64, window_dim: W, hop_dim: H, bpms: &RowVec<f64, F>)
+pub fn novelty_curve_to_tempogram_dft<S, W, H, F>(s: &S, sr: f64, window_dim: W, hop_dim: H, bpms: &RowVec<f64, F>)
 	-> (ContainerRM<c64, F, Dynamic>, f64)
-	where C: Dim + DimAdd<Dynamic>,
-	      S: Storage<f64, U1, C>,
+	where S::Cols: DimAdd<Dynamic>,
+	      S: RowVecStorage<f64>,
 	      W: Dim + DimDiv<U2>,
 	      <W as DimDiv<U2>>::Output: DimAdd<U1>,
-	      <C as DimAdd<Dynamic>>::Output: DimAdd<Dynamic>,
+	      <S::Cols as DimAdd<Dynamic>>::Output: DimAdd<Dynamic>,
 	      H: Dim, F: Dim
 {
 	let w = window::hanning(window_dim);
@@ -38,18 +38,24 @@ pub fn tempogram_to_cyclic_tempogram<C, F, O>(tg: &ContainerRM<c64, F, C>, bpms:
 	let mag_tempogram = tg.norm();
 
 	let log_bpm_count = ((max_octave - 1. / octave_divider.value() as f64) - min_octave) / (1. / octave_divider.value() as f64);
-	let log_bpm = RowVec::regspace_step_rows(
-		U1,
-		D!(log_bpm_count.floor() as usize),
+	let log_bpm = RowVec::regspace_step(
+		Size::new(U1, D!(log_bpm_count.floor() as usize)),
+		RowAxis,
 		min_octave as f64,
 		1. / octave_divider.value() as f64
 	).exp2() * ref_tempo;
-	let mut log_tempogram = ContainerRM::zeros(log_bpm.col_dim(), mag_tempogram.col_dim());
+	let mut log_tempogram = ContainerRM::zeros(Size::new(
+		log_bpm.col_dim(),
+		mag_tempogram.col_dim()
+	));
 	interp1_nearest_cols(&bpms.t(), &mag_tempogram, &log_bpm.t(), &mut log_tempogram);
 
-	let mut cyclic_tempogram = ContainerRM::zeros(octave_divider, mag_tempogram.col_dim());
+	let mut cyclic_tempogram = ContainerRM::zeros(Size::new(
+		octave_divider,
+		mag_tempogram.col_dim()
+	));
 	let end_pos = log_bpm.as_iter().cloned().enumerate().filter(|(_, v)| *v < max_bpm).last().unwrap().0;
-	for (i, mut row) in cyclic_tempogram.as_row_slice_mut_iter().enumerate() {
+	for (i, mut row) in cyclic_tempogram.as_row_slice_iter_mut().enumerate() {
 		let range = (i..end_pos).step_by(octave_divider.value());
 		let range_size = range.len();
 		for j in range {

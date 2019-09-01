@@ -1,6 +1,6 @@
 use std::path::{PathBuf};
 use litcontainers::*;
-use litaudio::{AudioDeinterleaved, AudioStorage};
+use litaudio::{AudioDeinterleaved, AudioStorage, AudioDeinterleavedC};
 use littempo::{NCSettingsBuilder};
 
 
@@ -8,7 +8,7 @@ use littempo::{NCSettingsBuilder};
 fn novelty_curve() {
 	let crate_path = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
 	let target: RowVec<f64, Dynamic> = litio::read_binary_file(&crate_path.join("assets/test_audio_novelty_curve.lit")).unwrap();
-	let audio: AudioDeinterleaved<f64, U1, Dynamic> = litaudioio::read_audio(&crate_path.join("assets/test_audio.wav")).unwrap();
+	let audio: AudioDeinterleavedC<f64, U1, Dynamic> = litaudioio::read_audio(&crate_path.join("assets/test_audio.wav")).unwrap();
 
 	let bands = littempo::default_audio_bands(audio.sample_rate() as f64);
 
@@ -33,7 +33,7 @@ fn tempogram() {
 	let target: ContainerRM<c64, Dynamic, Dynamic> = litio::read_binary_file(&crate_path.join("assets/test_audio_tempogram.lit")).unwrap();
 
 	let nc_sr: f64 = 200.;
-	let bpms = RowVec::regspace_rows(U1, D!(571), 30.);
+	let bpms = RowVec::regspace(Size::new(U1, D!(571)), RowAxis, 30.);
 	let tempo_window = (8. * nc_sr) as usize;
 	let tempo_hop_size = (nc_sr / 5.).ceil() as usize;
 
@@ -61,7 +61,7 @@ fn cyclic_tempogram() {
 	let target: ContainerRM<f64, Dynamic, Dynamic> = litio::read_binary_file(&crate_path.join("assets/test_audio_cyclic_tempogram.lit")).unwrap();
 	let target_axis: RowVec<f64, Dynamic> = litio::read_binary_file(&crate_path.join("assets/test_audio_cyclic_tempogram_axis.lit")).unwrap();
 
-	let bpms = RowVec::regspace_rows(U1, D!(571), 30.);
+	let bpms = RowVec::regspace(Size::new(U1, D!(571)), RowAxis, 30.);
 	let (cyclic_tempogram, cyclic_tempogram_axis)
 		= littempo::tempogram_to_cyclic_tempogram(&tempogram, &bpms, D!(120), 60.);
 

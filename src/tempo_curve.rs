@@ -3,8 +3,8 @@ use num_traits::Signed;
 
 pub type Segment = Vec<usize>;
 
-pub fn correct_curve_by_length<T, R, S>(curve: &S, min_length: usize) -> RowVec<T, R>
-	where T: ElementaryScalar + Signed, R: Dim, S: RowVecStorage<T, R>
+pub fn correct_curve_by_length<T, S>(curve: &S, min_length: usize) -> RowVec<T, S::Cols>
+	where T: Scalar + Signed, S: RowVecStorage<T>
 {
 	// Split measurements in segments with same value
 	let segments = split_curve(curve);
@@ -20,7 +20,7 @@ pub fn correct_curve_by_length<T, R, S>(curve: &S, min_length: usize) -> RowVec<
 	for segment in small_segments {
 		let (start, end) = (*segment.first().unwrap(), *segment.last().unwrap());
 		let before = if start > 0 { curve[start - 1] } else { T::max_val() };
-		let after = if end + 1 < curve.col_count() { curve[end + 1] } else { T::max_val() };
+		let after = if end + 1 < curve.cols() { curve[end + 1] } else { T::max_val() };
 		let target = if (ret[start] - before).abs() > (ret[start] - after).abs() { after } else { before };
 		if target == T::max_val() { continue; }
 
@@ -34,8 +34,8 @@ pub fn correct_curve_by_confidence() {
 	unimplemented!() // TODO: assume normal distribution. Keep exceptional changes
 }
 
-pub fn split_curve<T, R, S>(curve: &S) -> Vec<Segment>
-	where T: ElementaryScalar, R: Dim, S: RowVecStorage<T, R>
+pub fn split_curve<T, S>(curve: &S) -> Vec<Segment>
+	where T: Scalar, S: RowVecStorage<T>
 {
 	let mut ret = Vec::new();
 	let mut current_section = Vec::new();

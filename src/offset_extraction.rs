@@ -3,11 +3,11 @@ use crate::TempoSection;
 use std::cmp::Ordering::Equal;
 use rayon::prelude::*;
 
-pub fn extract_offset<C, S>(nc: &S, sr: f64, s: &mut TempoSection, tempo_multiples: &Vec<f32>, doubt_window: f32, doubt_step: f32)
-	where C: Dim, S: RowVecStorage<f64, C>
+pub fn extract_offset<S>(nc: &S, sr: f64, s: &mut TempoSection, tempo_multiples: &Vec<f32>, doubt_window: f32, doubt_step: f32)
+	where S: RowVecStorage<f64>
 {
 	let start = (s.start() as f64 * sr) as usize;
-	let end = ((s.end() as f64 * sr) as usize).min(nc.size());
+	let end = ((s.end() as f64 * sr) as usize).min(nc.len());
 	let section_length = end - start;
 
 	let min_bpm = s.bpm() - doubt_window / 2.;

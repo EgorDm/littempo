@@ -27,9 +27,9 @@ impl TempoSection {
 	pub fn duration(&self) -> f32 { self.end - self.start }
 }
 
-pub fn tempo_segments_to_sections<R, S>(curve: &S, segments: &Vec<Segment>, sr: f64, ref_tempo: f64)
+pub fn tempo_segments_to_sections<S>(curve: &S, segments: &Vec<Segment>, sr: f64, ref_tempo: f64)
 	-> Vec<TempoSection>
-	where R: Dim, S: RowVecStorage<f64, R>
+	where S: RowVecStorage<f64>
 {
 	segments.iter().map(|segment| {
 		let start = (*segment.first().unwrap() as f64 / sr) as f32;

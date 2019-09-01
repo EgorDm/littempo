@@ -6,7 +6,8 @@ use std::path::PathBuf;
 use std::cmp::Ordering::Equal;
 use crate::TempoSection;
 
-#[derive(Debug, Clone, Builder, Getters)]
+#[builder(pattern = "owned")]
+#[derive(Debug, Builder, Getters)]
 pub struct TempoExtractionSettings {
 	/// Analysis band bins.
 	#[builder(default = "None")]
@@ -18,7 +19,7 @@ pub struct TempoExtractionSettings {
 	#[builder(default = "0.2")]
 	tempo_hop_size: f64,
 	/// BPMs which to check for tempo peaks.
-	#[builder(default = "RowVec::regspace_rows(U1, D!(571), 30.)")]
+	#[builder(default = "RowVec::regspace(Size::new(U1, D!(571)), RowAxis, 30.)")]
 	scan_bpms: RowVec<f64, Dynamic>,
 	/// Reference tempo defining the partition of BPM into tempo octaves for calculating cyclic tempogram.
 	#[builder(default = "60.")]
@@ -94,8 +95,8 @@ impl TempoExtractionSettings {
 	}
 }
 
-pub fn extract_tempo<L, P, S>(a: &S, settings: &TempoExtractionSettings) -> Vec<TempoSection>
-	where L: Dim, P: SamplePackingType, S: AudioStorage<f64, U1, L, P>
+pub fn extract_tempo<P, S>(a: &S, settings: &TempoExtractionSettings) -> Vec<TempoSection>
+	where P: SamplePackingType, S: AudioStorage<f64, P> + StorageSize<Rows=U1>
 {
 	let sr = a.sample_rate() as f64;
 
@@ -105,7 +106,10 @@ pub fn extract_tempo<L, P, S>(a: &S, settings: &TempoExtractionSettings) -> Vec<
 	// Calculate novelty curve / odf
 	let bands = settings.analysis_band_bins().as_ref().map(|c| c.clone_owned()).unwrap_or({
 		let ret = crate::default_audio_bands(sr);
-		ret.transmute_dims(D!(ret.row_count()), ret.col_dim(), ret.row_stride_dim(), ret.col_stride_dim()).owned()
+		ret.transmute_dims(
+			Size::new(D!(ret.rows()), ret.col_dim()),
+			ret.strides()
+		).owned()
 	});
 	let (novelty_curve, nc_sr) = crate::calculate_novelty_curve(
 		a,
@@ -128,7 +132,7 @@ pub fn extract_tempo<L, P, S>(a: &S, settings: &TempoExtractionSettings) -> Vec<
 	// Normalize tempogram
 	normalize_cols_inplace(&mut tempogram, |s| norm_p2_c(s));
 	let tempogram_mag = (&tempogram).norm();
-	let mut tempogram_mag_t = ContainerRM::zeros(tempogram_mag.row_dim(), tempogram_mag.col_dim());
+	let mut tempogram_mag_t = ContainerRM::zeros(Size::new(tempogram_mag.row_dim(), tempogram_mag.col_dim()));
 	tempogram_mag_t.copy_from(&tempogram_mag);
 
 	if *settings.verbose() { println!(" - Calculating cyclic tempogram") }
@@ -177,7 +181,7 @@ pub fn extract_tempo<L, P, S>(a: &S, settings: &TempoExtractionSettings) -> Vec<
 	// Save a click track
 	if *settings.save_click_track() {
 		let path = settings.save_path().join("click_track.mp3");
-		let mut click_audio = AudioDeinterleaved::new(DeinterleavedStorage::zeros(a.channel_dim(), a.sample_dim()), a.sample_rate());
+		let mut click_audio = AudioDeinterleaved::new(DeinterleavedStorage::zeros(Size::new(a.channel_dim(), a.sample_dim())), a.sample_rate());
 		click_audio.as_iter_mut().zip(a.as_iter()).for_each(|(o, i)| *o = *i as f32);
 		crate::save_tempo_click_track(&path, click_audio, &tempo_sections, *settings.click_fraction()).unwrap();
 	}
