@@ -6,7 +6,7 @@ use clap::{App, Arg};
 
 fn main() {
 	let (audio_path, settings) = arguments();
-	let audio: AudioDeinterleavedC<f64, U1, Dynamic> = litaudioio::read_audio(&audio_path).unwrap();
+	let audio: AudioDeinterleaved<f64, U1, Dynamic> = litaudioio::read_audio(&audio_path).unwrap();
 
 	let tempo_sections = littempo::extract_tempo(&audio, &settings);
 

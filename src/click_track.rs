@@ -27,7 +27,7 @@ pub fn save_tempo_click_track<P, S>(path: &Path, a: S, sections: &Vec<TempoSecti
 pub fn click_track(sections: &Vec<TempoSection>, sr: f64, click_fraction: u32) -> Option<AudioDeinterleaved<f32, U1, Dynamic>> {
 	if sections.is_empty() { return None; }
 	let len = ((sections.last().unwrap().end() - sections.first().unwrap().start()) as f64 * sr).round() as usize;
-	let mut ret = AudioDeinterleaved::new(DeinterleavedStorage::zeros(Size::new(U1,  D!(len))), sr as i32);
+	let mut ret = DeinterleavedStorage::zeros(Size::new(U1,  D!(len))).into_audio(sr as i32, Deinterleaved);
 
 	for s in sections {
 		let clicks = click_track_from_section(s, sr, click_fraction);
@@ -70,7 +70,7 @@ pub fn click_track_from_tempo<D: Dim>(bpm: f32, offset: f32, length: D, sr: f64,
 
 pub fn click_track_from_positions<D: Dim>(p: &Vec<f32>, sr: f64, length: D) -> AudioDeinterleaved<f32, U1, D>
 {
-	let mut ret = AudioDeinterleaved::new(DeinterleavedStorage::zeros(Size::new(U1, length)), sr.round() as i32);
+	let mut ret = 	DeinterleavedStorage::zeros(Size::new(U1, length)).into_audio(sr.round() as i32, Deinterleaved);
 	let click = click_sound(sr);
 
 	for pos in p {

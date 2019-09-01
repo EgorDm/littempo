@@ -7,7 +7,7 @@ use littempo::NCSettingsBuilder;
 fn calculate_novelty_curve_benchmark(c: &mut Criterion) {
 	let audio = setup_audio();
 
-	let bands = ContainerRM::from_vec(U5, U2, &[
+	let bands = ContainerRM::from_vec(Size::new(U5, U2), &[
 		0., 500.,
 		500.,    1250.,
 		1250.,   3125.,

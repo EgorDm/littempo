@@ -181,7 +181,7 @@ pub fn extract_tempo<P, S>(a: &S, settings: &TempoExtractionSettings) -> Vec<Tem
 	// Save a click track
 	if *settings.save_click_track() {
 		let path = settings.save_path().join("click_track.mp3");
-		let mut click_audio = AudioDeinterleaved::new(DeinterleavedStorage::zeros(Size::new(a.channel_dim(), a.sample_dim())), a.sample_rate());
+		let mut click_audio = DeinterleavedStorage::zeros(Size::new(a.channel_dim(), a.sample_dim())).into_audio(a.sample_rate(), Deinterleaved);
 		click_audio.as_iter_mut().zip(a.as_iter()).for_each(|(o, i)| *o = *i as f32);
 		crate::save_tempo_click_track(&path, click_audio, &tempo_sections, *settings.click_fraction()).unwrap();
 	}
